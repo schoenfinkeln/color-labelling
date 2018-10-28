@@ -1,0 +1,221 @@
+<html>
+    <head>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+        <!-- Plotly.js -->
+        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+        <!-- <script type="text/javascript" src="script.js"></script> -->
+        <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <style type="text/css">
+            .main.container-fluid {
+                margin-top: 100px;
+                margin-left: 50px;
+                margin-right: 50px;
+                margin-bottom: 10px;
+            }
+            .main .row {
+                margin-bottom: 100px;
+            }
+            nav .form-group select {
+                margin-top: 0;
+            }
+            img {
+                height: 100%;
+                width: auto;
+                max-height: 400px;
+            }
+            .images img {
+                margin: auto auto;
+            display: block;
+            }
+            select, label {
+                margin-top: 20px;
+            }
+        .row.images > * {
+        margin-bottom: 3rem;
+        }
+        </style>
+    </head>
+    <body>
+        <nav class="navbar navbar-default navbar-fixed-top">
+            <div class="container-fluid">
+            <span class="navbar-brand">Image Segmentation and Color Extraction</span>
+                <form class="navbar-form navbar-right">
+                    <div class="form-group">
+                        <select class="form-control" name="art_select" id="select_art"></select>
+                    </div>
+                </form>
+            </div>
+        </nav>
+<!--         <nav class="navbar navbar-default navbar-fixed-top">
+            <div class="container-fluid">
+                <span class="navbar-brand">Image Segmentation and Color Extraction</span>
+                <form class="navbar-form navbar-right">
+                    <div class="form-group">
+                        <label class="navbar-text" for="select_art">Select art image: </label>
+                        <input class="form-control" name="art_select" id="select_art"></ionput>
+                    </div>
+                </form>
+            </div>
+        </nav> -->
+        <div class="container-fluid main">
+            <div class="row images">
+                <div class="col-md-6"><img src="" id="original-image"></div>
+                <div class="col-md-6"><img src="" id="segmented-image"></div>
+            </div>
+            <div class="row">
+                <div class="col-lg-6"><div id="segmented_plotly"></div></div>
+                <div class="col-lg-6"><div id="clustered_plotly"></div></div>
+            </div>
+            <div class="row">
+                <div class="col-lg-3 col-lg-offset-4"><div id="extracted_colors"></div></div>
+            </div>
+        </div>
+        <script>
+        var filename;
+        function getParameterByName(name, url) {
+        if (!url) {
+        url = window.location.href;
+        }
+        name = name.replace(/[\[\]]/g, "\\$&");
+        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, " "));
+        }
+        /**
+        * http://stackoverflow.com/a/10997390/11236
+        */
+        function updateURLParameter(url, param, paramVal){
+        var newAdditionalURL = "";
+        var tempArray = url.split("?");
+        var baseURL = tempArray[0];
+        var additionalURL = tempArray[1];
+        var temp = "";
+        if (additionalURL) {
+            tempArray = additionalURL.split("&");
+        for (var i=0; i<tempArray.length; i++){
+            if(tempArray[i].split('=')[0] != param){
+                newAdditionalURL += temp + tempArray[i];
+                temp = "&";
+                }
+            }
+        }
+        var rows_txt = temp + "" + param + "=" + paramVal;
+        return baseURL + "?" + newAdditionalURL + rows_txt;
+        }
+        function updatePlotlys(filename_) {
+            if(filename_){
+                filename = filename_;
+                $('#select_art').val(filename_);
+            } else if(getParameterByName('file')){
+                filename = getParameterByName('file');
+            }
+            $('#original-image').attr('src', 'images/' + filename + '.jpg')
+            $('#segmented-image').attr('src', 'json/' + filename + '_segmented.jpg')
+            $.getJSON(BASE_URL + 'json/' + filename + '.json', function(data){
+                var segmented = [data['segmented_colors']];
+                var clustered = [data['clustered_colors'], data['convex_hull']];
+                segmented_plotly.data = segmented;
+                clustered_plotly.data = clustered;
+                extracted_colors.data = [{
+                    values: clustered[1]['marker']['size'],
+                    marker: {
+                        colors: clustered[1]['marker']['color_pie'],
+                    },
+                    //labels: ['US', 'China', 'European Union', 'Russian Federation', 'Brazil', 'India', 'Rest of World' ],
+                    textposition: 'inside',
+                    name: 'Extracted Colors',
+                    hoverinfo: 'label+percent',
+                    hole: .4,
+                    type: 'pie',
+                    showlegend: false,
+                    sort: false
+                }];
+                Plotly.redraw(segmented_plotly);
+                Plotly.redraw(clustered_plotly);
+                        Plotly.redraw(extracted_colors);
+            });
+        }
+        function initPlotly(){
+            $('#original-image').attr('src', 'images/' + filename + '.jpg')
+            $('#segmented-image').attr('src', 'json/' + filename + '_segmented.jpg')
+            $.getJSON(BASE_URL + 'json/' + filename + '.json', function(data){
+                var segmented = [data['segmented_colors']];
+                var clustered = [data['clustered_colors'], data['convex_hull']];
+                var layout = {
+                    height: screen.width / 2.5,
+                    margin: { r: 0, t: 30, b: 0, l: 0},
+                    title: 'Segmented Colors in L*a*b Color Space',
+                    width: screen.width / 2.5,
+                    backgroundcolor: 'rgb(217, 217, 217)',
+                    scene: {
+                        xaxis: {
+                            ticks: "",
+                            title: "b",
+                        },
+                        yaxis: {
+                            title: "a",
+                        },
+                        zaxis: {
+                            title: "L"
+                        }
+                    }
+                };
+                Plotly.plot('segmented_plotly', segmented, layout, {displaylogo: false});
+                var layout_cluster = layout;
+                layout_cluster.title = "Clustered Colors with Convex Hull (black circles)";
+                    Plotly.plot('clustered_plotly', clustered, layout_cluster, {displaylogo: false});
+                var color_pie = [{
+                    values: clustered[1]['marker']['size'],
+                    marker: {
+                        colors: clustered[1]['marker']['color_pie'],
+                    },
+                    textposition: 'inside',
+                    name: 'Extracted Colors',
+                    hoverinfo: 'label+percent',
+                    hole: .4,
+                    type: 'pie',
+                    showlegend: false,
+                    sort: false,
+                }];
+                var color_pie_layout = {
+                    title: 'Extracted Colors',
+                    height: screen.width / 4,
+                    width: screen.width / 4,
+                    margin: { r: 0, t: 30, b: 0, l: 0}
+                };
+                        Plotly.newPlot('extracted_colors', color_pie, color_pie_layout, {displaylogo: false});
+            });
+        }
+        $(document).ready(function() {
+            var images = [];
+            BASE_URL = location.protocol + '//' + location.host + location.pathname
+            $.getJSON(BASE_URL + 'file_list.json', function(data){
+                images = images.concat(data);
+                var options_list = [];
+                images.forEach(function(element, index, array){
+                    options_list += '<option value=' + element.id + '>' + element.title + '</option>';
+                });
+                $('#select_art').append(options_list);
+                filename = getParameterByName('file', window.location);
+                if(filename == '' || filename == null) {
+                    filename = data[0].id;
+                } else {
+                    $('#select_art').val(filename);
+                }
+                initPlotly();
+            });
+            $('#select_art').on('change', function(){
+                updatePlotlys(this.value);
+                window.location.replace(updateURLParameter(window.location.href, 'file', this.value));
+            });
+            filename = getParameterByName('file', window.location);
+
+            if(filename == '' || filename == null) {
+                filename = '10885';
+            }
+        });
+        </script>
+    </body>
+</html>
